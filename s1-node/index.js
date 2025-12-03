@@ -1,3 +1,4 @@
+
 /**
  * S1 - Servidor REST con TLS + Login + Validación OTP
  * Se comunica con S2 para generar OTP y validar OTP.
@@ -14,6 +15,9 @@ const crypto = require("crypto");
 
 const app = express();
 app.use(bodyParser.json());
+
+const cors = require("cors");
+app.use(cors());
 
 // ===== CONFIG ===== //
 
