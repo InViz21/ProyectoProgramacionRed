@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <title>Cliente Web – Login + OTP + CRUD</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: auto; }
+    input { margin: 5px 0; padding: 4px; width: 100%; }
+    button { padding: 6px 12px; margin-top: 5px; }
+    pre { background: #f0f0f0; padding: 10px; white-space: pre-wrap; }
+    section { margin-bottom: 30px; border-bottom: 1px solid #ccc; padding-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Cliente Web – Sistema Distribuido</h1>
+
+  <section>
+    <h2>1. Login (envía OTP por Telegram)</h2>
+    <form id="loginForm">
+      <input type="text" id="username" placeholder="Usuario" required>
+      <input type="password" id="password" placeholder="Contraseña" required>
+      <button type="submit">Login</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>2. Validar OTP (llegará por Telegram)</h2>
+    <form id="otpForm">
+      <input type="text" id="otpUsername" placeholder="Usuario" required>
+      <input type="text" id="otpCode" placeholder="Código OTP" required>
+      <button type="submit">Validar OTP</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>3. Token JWT</h2>
+    <pre id="tokenOut">(aún no generado)</pre>
+  </section>
+
+  <section>
+    <h2>4. Ver perfil (/profile)</h2>
+    <button id="getProfile">Ver Perfil</button>
+    <pre id="profileOut"></pre>
+  </section>
+
+  <section>
+    <h2>5. Ver lista de items (/items)</h2>
+    <button id="getItems">Ver Items</button>
+    <pre id="itemsOut"></pre>
+  </section>
+
+  <script>
+    const S1 = 'https://localhost:4430';
+
+    // Mostrar token si ya existe
+    if (localStorage.getItem('token')) {
+      document.getElementById('tokenOut').textContent = localStorage.getItem('token');
+    }
+
+    // Login
+    document.getElementById('loginForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      const r = await fetch(`${S1}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const j = await r.json();
+      alert(j.message || j.error || 'Revisa Telegram para el OTP');
+    };
+
+    // Validar OTP
+    document.getElementById('otpForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('otpUsername').value;
+      const otp = document.getElementById('otpCode').value;
+
+      const r = await fetch(`${S1}/validate-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, otp: otp })
+      });
+
+      const j = await r.json();
+      if (j.token) {
+        localStorage.setItem('token', j.token);
+        document.getElementById('tokenOut').textContent = j.token;
+        alert("Token recibido y guardado.");
+      } else {
+        alert(j.error || 'OTP inválido');
+      }
+    };
+
+    // Ver perfil
+    document.getElementById('getProfile').onclick = async () => {
+      const token = localStorage.getItem('token');
+      const r = await fetch(`${S1}/profile`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const j = await r.json();
+      document.getElementById('profileOut').textContent = JSON.stringify(j, null, 2);
+    };
+
+    // Ver items
+    document.getElementById('getItems').onclick = async () => {
+      const token = localStorage.getItem('token');
+      const r = await fetch(`${S1}/items`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const j = await r.json();
+      document.getElementById('itemsOut').textContent = JSON.stringify(j, null, 2);
+    };
+  </script>
+</body>
+</html>
