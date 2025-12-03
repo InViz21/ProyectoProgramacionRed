@@ -1,0 +1,235 @@
+INSTRUCTIVO COMPLETO DEL SISTEMA – S1, S2, S3
+
+Este instructivo explica cómo levantar el proyecto y cómo usarlo desde cero.
+
+1. Arquitectura General del Proyecto
+
+El proyecto está compuesto por tres servidores:
+
+S1 — API Gateway (Node.js + HTTPS + JWT)
+
+    • Expone el login
+    • Solicita OTP a S2
+    • Valida OTP
+    • Genera tokens JWT
+    • Reenvía CRUD de items hacia S3
+    • El cliente siempre se conecta a S1
+
+S2 — Servidor OTP (Python)
+
+    • Genera OTP
+    • Valida OTP
+    • Envía OTP por Telegram
+
+S3 — Servidor REST (Python + SQLite)
+
+    • Guarda usuarios
+    • Guarda items
+    • Exposición CRUD real
+
+
+2. Requisitos del Sistema
+
+Debe estar tener instalado:
+
+Node.js
+
+sudo apt install nodejs npm
+
+Python 3 + pip
+
+sudo apt install python3 python3-pip
+
+Paquetes necesarios:
+
+Para S1 (Node)
+
+Dentro del directorio de S1:
+
+npm install express axios jsonwebtoken body-parser https fs
+npm install cors
+
+Para S2 y S3 (Python)
+
+pip install flask flask-cors python-telegram-bot
+
+
+3. Preparación de Archivos
+
+S3 (db.sqlite)
+
+Debes crear la base de datos ejecutando:
+
+python3 init_db.py
+
+Esto creará:
+
+Tabla `users`
+Tabla `items`
+
+
+4. ORDEN CORRECTO PARA INICIAR TODO
+
+Este orden es obligatorio para que el sistema funcione.
+
+1. Levantar S3 (Base de Datos + CRUD)
+
+En terminal 1:
+
+cd S3
+python3 -m venv venv
+source venv/bin/activate
+pip install flask
+python3 app.py
+
+S3 escuchará en:
+
+`http://localhost:5002`
+
+
+2. Levantar S2 (Servidor OTP / Telegram)
+
+En terminal 2:
+
+cd S2
+python3 -m venv venv
+source venv/bin/activate
+pip install flask
+python3 app.py
+
+S2 escuchará en:
+
+`http://localhost:5001`
+
+Asegúrate de tener los tokens configurados para tu bot de Telegram.
+
+
+3. Levantar S1 (API Gateway + HTTPS)
+
+En terminal 3:
+
+cd S1
+node index.js
+
+S1 estará disponible en:
+
+`https://localhost:4430`
+
+(OJO: HTTPS siempre requiere usar `-k` con curl)
+
+
+5. Flujo Completo de Uso del Sistema
+
+A continuación se explica el flujo completo, desde crear usuario, iniciar sesión, pedir OTP, validar OTP y usar el CRUD.
+
+
+6. PRUEBAS Y COMANDOS
+
+PASO 1 — Crear un usuario en S3
+
+curl -X POST http://localhost:5002/users \
+-H "Content-Type: application/json" \
+-d '{"username":"storm","password":"1234","email":"correo@example.com"}'
+
+Debe responder:
+
+{"message":"Usuario creado", "otp_secret":"..."}
+
+
+PASO 2 — Login en S1 (solicita OTP)
+
+curl -k -X POST https://localhost:4430/login \
+-H "Content-Type: application/json" \
+-d '{"username":"storm","password":"1234"}'
+
+Si la contraseña es correcta:
+
+{ "message": "OTP enviado (Telegram). Usa /validate-otp para validar." }
+
+Revisa Telegram y encontrarás tu OTP.
+
+
+
+
+
+PASO 3 — Validación de OTP en S1
+
+curl -k -X POST https://localhost:4430/validate-otp \
+-H "Content-Type: application/json" \
+-d '{"username":"storm", "otp":"123456"}'
+
+Debería regresar:
+
+{"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}
+
+Guarda este token para el CRUD.
+
+
+PASO 4 — Probar token en un endpoint seguro
+
+curl -k https://localhost:4430/profile \
+-H "Authorization: Bearer TU_TOKEN_AQUI"
+
+
+7. CRUD COMPLETO DE ITEMS (S1 → S3)
+
+Asegúrate de exportar tu token:
+
+TOKEN="TU_TOKEN_AQUI"
+
+
+CREAR ITEM
+
+curl -k -X POST https://localhost:4430/items \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d '{"name":"Laptop","description":"Nueva laptop gaming"}'
+
+
+LISTAR ITEMS
+
+curl -k -X GET https://localhost:4430/items \
+-H "Authorization: Bearer $TOKEN"
+
+
+OBTENER ITEM POR ID
+
+curl -k -X GET https://localhost:4430/items/1 \
+-H "Authorization: Bearer $TOKEN"
+
+
+
+
+
+ACTUALIZAR ITEM
+
+curl -k -X PUT https://localhost:4430/items/1 \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d '{"name":"Laptop PRO","description":"Actualizada"}'
+
+
+ELIMINAR ITEM
+
+curl -k -X DELETE https://localhost:4430/items/1 \
+-H "Authorization: Bearer $TOKEN"
+
+
+8. RESUMEN RÁPIDO
+
+
+Componente	Función	Puerto
+S1 (Node.js)	Login, OTP, JWT, CRUD proxy	4430 (HTTPS)
+S2 (Python)	Generación y validación de OTP	5001
+S3 (Python + SQLite)	Usuarios + CRUD real	5002
+
+
+Flujo de autenticación:
+
+1. Login →
+2. S1 valida password →
+3. S1 pide OTP a S2 →
+4. Usuario recibe OTP en Telegram →
+5. Usuario valida OTP →
+6. S1 genera JWT →
+7. Usuario opera CRUD con token
